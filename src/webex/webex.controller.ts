@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Headers, Post, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, Post, Query, Req } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { WebexService } from './webex.service';
 import { LeadQueueProducer } from './lead.producer';
@@ -9,6 +9,17 @@ import { InjectQueue } from '@nestjs/bullmq';
 @Controller('webex')
 export class WebexController {
     constructor(@InjectQueue('solar-lead') private readonly q: Queue, private readonly webex: WebexService, private readonly producer: LeadQueueProducer) { }
+
+    @Get('rooms')
+    listRooms() {
+        return this.webex.listRooms(); // [{id,title},...]
+    }
+
+    @Get('room-id')
+    async roomId(@Query('title') title: string) {
+        const id = await this.webex.getRoomIdByTitle(title);
+        return { title, id };
+    }
 
     @Post('lead')
     async newLead(

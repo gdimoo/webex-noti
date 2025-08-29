@@ -1,9 +1,10 @@
-import { Injectable, HttpException, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { GoldService, GoldSnapshot } from './gold.service';
 import * as dayjs from 'dayjs';
 import 'dayjs/locale/th';
+import axios from 'axios';
 dayjs.locale('th');
 
 @Injectable()
@@ -16,6 +17,27 @@ export class WebexService {
             Authorization: `Bearer ${process.env.WEBEX_BOT_TOKEN}`,
             'Content-Type': 'application/json',
         };
+    }
+    
+    async listRooms(): Promise<Array<{ id: string; title: string }>> {
+        let url = 'https://webexapis.com/v1/rooms?max=100';
+        const out: Array<{ id: string; title: string }> = [];
+        for (; ;) {
+            const res = await axios.get(url, {
+                headers: { Authorization: `Bearer ${process.env.WEBEX_BOT_TOKEN}` },
+            });
+            out.push(...res.data.items.map((r: any) => ({ id: r.id, title: r.title })));
+            const link: string | undefined = res.headers['link'];
+            const next = link && /<([^>]+)>;\s*rel="next"/.exec(link)?.[1];
+            if (!next) break;
+            url = next;
+        }
+        return out;
+    }
+
+    async getRoomIdByTitle(title: string): Promise<string | null> {
+        const rooms = await this.listRooms();
+        return rooms.find(r => r.title === title)?.id ?? null;
     }
 
     async sendToRoom(markdown: string, roomId = process.env.WEBEX_ROOM_ID!) {
